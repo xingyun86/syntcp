@@ -4,7 +4,6 @@
 #include "SynTcp.h"
 
 int main(int argc, char** argv) {
-	WinSockEnv::Inst();
 
 	ClientHandle::Inst()->pHost = "192.168.1.140";
 	ClientHandle::Inst()->nPort = 1234;

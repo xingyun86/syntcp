@@ -6,14 +6,9 @@
 #include <iostream>
 
 // TODO: Reference additional headers your program requires here.
-// SyncTcpClient.cpp : This file contains the 'main' function. Program execution begins and ends there.
+// SyncTcp.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
-#define  _WINSOCK_DEPRECATED_NO_WARNINGS 
-#include <string>
-#include <thread>
-#include <winsock2.h>
-#pragma comment(lib,"ws2_32.lib")
-
+#include <network.h>
 typedef enum
 {
 	CMD_HB = 0x0,
@@ -39,45 +34,6 @@ typedef struct
 }PACKET_HEADER;
 #pragma pack()
 
-class WinSockEnv {
-public:
-	WSADATA wsadata = { 0 };
-	WinSockEnv()
-	{
-		//初始化套接字库
-		WORD w_req = MAKEWORD(2, 2);//版本号
-		int err;
-		err = WSAStartup(w_req, &wsadata);
-		if (err != 0)
-		{
-			std::cout << "Initialize winsock library failed！" << std::endl;
-		}
-		else
-		{
-			std::cout << "Initialize winsock library ok！" << std::endl;
-		}
-		//检测版本号
-		if (LOBYTE(wsadata.wVersion) != 2 || HIBYTE(wsadata.wHighVersion) != 2)
-		{
-			std::cout << "Winsock library version failed！" << std::endl;
-			WSACleanup();
-		}
-		else
-		{
-			std::cout << "Winsock library version ok！" << std::endl;
-		}
-	}
-	~WinSockEnv()
-	{
-		WSACleanup();
-	}
-public:
-	static WinSockEnv* Inst()
-	{
-		static WinSockEnv winSockEnvInstance;
-		return &winSockEnvInstance;
-	}
-};
 class ClientHandle {
 public:
 	const char* pHost = "192.168.1.140";
@@ -88,6 +44,7 @@ public:
 	CMD_TYPE cmd;
 	DAT_TYPE dat;
 	bool bRunning = false;
+	uint32_t nRecvSize = 102400;
 private:
 	int send_with_recv_core(std::string& recv_data, const std::string& send_data, const char* pHost, unsigned short nPort)
 	{
@@ -95,33 +52,27 @@ private:
 		size_t send_len = 0;
 		size_t recv_len = 0;
 		u_long nNonBlock = 0;
-		SOCKET s = INVALID_SOCKET;
+		PPS_SOCKET s = PPS_INVALID_SOCKET;
 		sockaddr_in sain = { 0 };
 
-		recv_data.resize(102400, '\0');
+		recv_data.resize(nRecvSize, '\0');
 
 		sain.sin_family = AF_INET;
 		sain.sin_addr.s_addr = inet_addr(pHost);
 		sain.sin_port = htons(nPort);
 
 		s = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-		if (s == INVALID_SOCKET)
+		PPS_SetNonBlock(s, nNonBlock);
+		if (s == PPS_INVALID_SOCKET)
 		{
-			std::cout << "Socket failed！ErrId=" << WSAGetLastError() << std::endl;
+			std::cout << "Socket failed！ErrId=" << NET_ERR_CODE << std::endl;
 			ret = -1;
 			goto __LEAVE_CLEAN__;
 		}
 
-		if (ioctlsocket(s, FIONBIO, &nNonBlock) == SOCKET_ERROR)
+		if (connect(s, (const sockaddr*)&sain, sizeof(sockaddr)) == PPS_SOCKET_ERROR)
 		{
-			std::cout << "ioctlsocket() failed with error!ErrId=" << WSAGetLastError() << std::endl;
-			ret = -3;
-			goto __LEAVE_CLEAN__;
-		}
-
-		if (connect(s, (const sockaddr*)&sain, sizeof(sockaddr)) == SOCKET_ERROR)
-		{
-			std::cout << "Connect to server failed！ErrId=" << WSAGetLastError() << std::endl;
+			std::cout << "Connect to server failed！ErrId=" << NET_ERR_CODE << std::endl;
 			usage();
 			ret = -2;
 			goto __LEAVE_CLEAN__;
@@ -131,7 +82,7 @@ private:
 		send_len = send(s, send_data.data(), (int)send_data.size(), 0);
 		if (send_len < 0)
 		{
-			std::cout << "Send failed！ErrId=" << WSAGetLastError() << std::endl;
+			std::cout << "Send failed！ErrId=" << NET_ERR_CODE << std::endl;
 			ret = -4;
 			goto __LEAVE_CLEAN__;
 		}
@@ -139,17 +90,17 @@ private:
 		recv_len = recv(s, (char*)recv_data.data(), (int)recv_data.size(), 0);
 		if (recv_len < 0)
 		{
-			std::cout << "Recv failed！ErrId=" << WSAGetLastError() << std::endl;
+			std::cout << "Recv failed！ErrId=" << NET_ERR_CODE << std::endl;
 			ret = -5;
 			goto __LEAVE_CLEAN__;
 		}
 		std::cout << "Recv ok:" << recv_data.c_str() << std::endl;
 
 	__LEAVE_CLEAN__:
-		if (s != INVALID_SOCKET)
+		if (s != PPS_INVALID_SOCKET)
 		{
 			shutdown(s, 2);
-			closesocket(s);
+			PPS_CloseSocket(s);
 		}
 
 		return ret;
@@ -211,6 +162,7 @@ public:
 	}
 	void Run()
 	{
+		NET_INIT();
 		bRunning = true;
 		while (bRunning)
 		{
