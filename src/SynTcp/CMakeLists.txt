@@ -7,5 +7,6 @@ project ("SynTcp")
 
 # Include sub-projects.
 add_subdirectory ("SynTcp")
+add_subdirectory ("UdpClient")
 add_subdirectory ("UdpServer")
 add_subdirectory ("EnumHostAddr")

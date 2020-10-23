@@ -1,14 +1,17 @@
-﻿# CMakeList.txt : CMake project for SynTcp, include source and define
+﻿# CMakeList.txt : CMake project for ArtnetUdp, include source and define
 # project specific logic here.
 #
 cmake_minimum_required (VERSION 3.8)
 
-set(project_name "SynTcp")
+set(project_name "UdpClient")
 project(${project_name})
 
 include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CMAKE_SOURCE_DIR}/vendor/include
+)
+link_directories(
+	${CMAKE_CURRENT_BINARY_DIR}
 )
 
 if(MSVC)
